@@ -101,8 +101,8 @@ class SubnetCalc
     bit = octets[octet_n].bits[col]
 
     magic_number, prefix = bit.hosts_per_subnet, bit.prefix
-    no_of_subnets = (2 ** 8) / bit.decimal
-
+    
+    no_of_subnets = (2 ** 8) / bit.hosts_per_subnet
     
     n =  col
 

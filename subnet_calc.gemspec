@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'subnet_calc'
-  s.version = '0.1.1'
+  s.version = '0.1.2'
   s.summary = 'A subnet calculator (only tested for a class C network)'
   s.authors = ['James Robertson']
   s.files = Dir['lib/subnet_calc.rb']
