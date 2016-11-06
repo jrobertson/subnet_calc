@@ -28,6 +28,11 @@ class SubnetCalc
 
     @inputs = inputs
     default_inputs = {hosts: 254, ip: '192.168.0.0'}.merge(inputs)
+    
+    # Using the input(s) supplied:
+
+    hosts = default_inputs[:hosts]
+    
 
     @prefixes = 1.upto(32).each_slice(8).to_a
     
@@ -66,7 +71,7 @@ class SubnetCalc
 
     # determine what class of network we are using
 
-    class_type = 'c'
+    class_type = hosts <= 254 ? 'c' : 'b'
 
     # Identify the network bits and the host bits
 
@@ -87,23 +92,20 @@ class SubnetCalc
 
     # ------------------------------------
 
-    # Using the input(s) supplied:
-
-    hosts = default_inputs[:hosts]
-
 
 
     # find the smallest decimal value to match the 
     # required number of hosts on a network    
     
-    octet_n, col = hosts_per_subnet.reverse.detect {|x| x.last >  hosts}    
+    octet_n, col = hosts_per_subnet.reverse.detect {|x| x.last >  hosts + 1}    
 
     bit = octets[octet_n].bits[col]
 
-    magic_number, prefix = bit.hosts_per_subnet, bit.prefix
+    magic_number, prefix = bit.hosts_per_subnet, bit.prefix    
     
-    no_of_subnets = (2 ** 8) / bit.hosts_per_subnet
-    
+    no_of_subnets = (2 ** 8.0) / bit.hosts_per_subnet
+
+    segments = (no_of_subnets >= 1 ? no_of_subnets : 256 / (256 * no_of_subnets)).to_i
     n =  col
 
     # add the new mask to the octet
@@ -111,22 +113,17 @@ class SubnetCalc
     octets[octet_n].mask = octets[octet_n].bits.map(&:decimal)[0..n].inject(:+)
     subnet_mask = octets.map(&:mask).join('.')
 
-    subnets = no_of_subnets.times.inject([]) do |r,n|
-      
-      i = r.last ? r.last.network + magic_number : 0
-
-      broadcast = i + magic_number - 1
-      first = i + 1
-      last = broadcast - 1
-      r << OpenStruct.new({network: i, first: first, last: last, 
-                           broadcast: broadcast})
+    subnets = case class_type
+    when 'c'
+      class_subnets(segments, magic_number)
+    when 'b'
+      class_b_subnets(256 / segments, bit.decimal)
     end
+
+    ip = (default_inputs[:ip] + ' ') .split('.')[0..octet_n-1]
     
-    ip = (default_inputs[:ip] + ' ') .split('.')
-    ip[class_n] = subnets.first.first
-    first_ip = ip.join('.')
-    ip[class_n] = subnets.first.last
-    last_ip = ip.join('.')
+    first_ip = (ip + [subnets.first.first]).join('.')
+    last_ip = (ip + [subnets.first.last]).join('.')
 
     result = {
       class_type: class_type.upcase,
@@ -138,7 +135,7 @@ class SubnetCalc
       subnets: subnets,
       range: "%s-%s" % [first_ip, last_ip],
       subnet_bits: n+1,
-      max_subnets: no_of_subnets
+      max_subnets: segments
     }
 
     @octet_n = octet_n
@@ -151,9 +148,15 @@ class SubnetCalc
 
     tfo = TableFormatter.new
 
-    tfo.source = @h[:subnets].map{|x| x.to_h.values.map(&:to_s) }
-    tfo.labels = %w(Network 1st last broadcast)
-    subnets_table = tfo.display(markdown: true).to_s
+    tfo.source = @h[:subnets].map.with_index{|x,i| ([i] + x.to_h.values).map(&:to_s) }
+    tfo.labels = %w(index Network 1st last broadcast)
+    full_subnets_table = tfo.display(markdown: true).to_s
+    
+    subnets_table = if full_subnets_table.lines.length > 14 then
+      (full_subnets_table.lines[0..13] + ["\n    ...  "]).join
+    else
+      full_subnets_table
+    end
 
     # octet broken down
 
@@ -213,6 +216,47 @@ EOF
   end
   
   private  
+  
+  def class_subnets(n, block_size)
+    
+    i = 0
+    
+    subnets = n.times.inject([]) do |r,n|
+      
+      broadcast = i + block_size - 1
+      first = i + 1
+      last = broadcast - 1
+      
+
+      
+      h = if block_given? then
+        yield(i,first,last,broadcast)
+      else
+        { network: i, first: first, last: last, broadcast: broadcast }
+      end
+      i += block_size      
+      
+      r << OpenStruct.new(h)
+      
+    end    
+    
+  end    
+  
+  def class_b_subnets(n, block_size)
+    
+    class_subnets(n, block_size) do |network, first, last, broadcast|
+      
+      {
+        network: [network, 0].join('.'), 
+        first: [network, 1].join('.'), 
+        last: [broadcast, 254].join('.'), 
+        broadcast: [broadcast, 255].join('.')
+      }
+                
+    end    
+    
+  end  
+  
   
   def indent(s, i=2)
     s.lines.map{|x| ' ' * i + x}.join

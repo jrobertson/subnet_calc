@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name = 'subnet_calc'
-  s.version = '0.1.2'
-  s.summary = 'A subnet calculator (only tested for a class C network)'
+  s.version = '0.2.0'
+  s.summary = 'A subnet calculator (only tested for class C and class B networks)'
   s.authors = ['James Robertson']
   s.files = Dir['lib/subnet_calc.rb']
   s.add_runtime_dependency('kvx', '~> 0.6', '>=0.6.1')
