@@ -90,7 +90,7 @@ class SubnetCalc
     end    
 
     # determine what class of network we are using
-    class_type = (hosts and hosts <= 254 or prefix >= 24) ? 'c' : 'b'
+    class_type = ((hosts and hosts <= 254) or (prefix and prefix >= 24)) ? 'c' : 'b'
 
     # Identify the network bits and the host bits
 
@@ -114,7 +114,8 @@ class SubnetCalc
 
     bit = octets[octet_n].bits[col]
 
-    magic_number, prefix = bit.hosts_per_subnet, bit.prefix    
+    magic_number, hosts_per_subnet, prefix = bit.decimal, 
+        bit.hosts_per_subnet, bit.prefix
     
     no_of_subnets = (2 ** 8.0) / bit.hosts_per_subnet
 
@@ -129,7 +130,7 @@ class SubnetCalc
 
     subnets = case class_type
     when 'c'
-      class_subnets(segments, magic_number)
+      class_subnets(segments, hosts_per_subnet)
     when 'b'
       class_b_subnets(256 / segments, bit.decimal)
     end
@@ -142,7 +143,7 @@ class SubnetCalc
     result = {
       class_type: class_type.upcase,
       magic_number: magic_number,
-      hosts: magic_number - 2,
+      hosts: hosts_per_subnet - 2,
       subnet_mask: subnet_mask,
       subnet_bitmask: subnet_mask.split('.').map {|x| x.to_i.to_s(2)},
       prefix: prefix,
@@ -199,7 +200,7 @@ Summary
 
 * Network class: #{@h[:class_type]}
 * magic number: #{@h[:magic_number]}
-* hosts per subnet (magic number - 2 ): #{@h[:hosts]}
+* hosts per subnet: #{@h[:hosts]}
 * subnet mask: #{@h[:subnet_mask]}
 * subnet bitmask: #{@h[:subnet_bitmask].join('.')}
 * prefix bit-length: #{@h[:prefix]}
