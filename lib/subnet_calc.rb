@@ -24,14 +24,14 @@ class SubnetCalc
 
   attr_reader :to_h
 
-  def initialize(inputs={hosts: 254})
+  def initialize(inputs={})
 
     @inputs = inputs
-    default_inputs = {hosts: 254, ip: '192.168.0.0'}.merge(inputs)
+    default_inputs = {hosts: nil, ip: '192.168.0.0', prefix: nil}.merge(inputs)
     
     # Using the input(s) supplied:
 
-    hosts = default_inputs[:hosts]
+    hosts, prefix = %i(hosts prefix).map {|x| default_inputs[x]}
     
 
     @prefixes = 1.upto(32).each_slice(8).to_a
@@ -64,14 +64,33 @@ class SubnetCalc
 
     end
     
-    hosts_per_subnet = octets.map.with_index do |x,i| 
-      x.bits.map.with_index {|y,j| [i, j, y.hosts_per_subnet] }
-    end.flatten(1)
+
+    # ------------------------------------
+
+
+    octet_n, col = if hosts then
+      
+      hosts_per_subnet = octets.flat_map.with_index do |octet,i| 
+        octet.bits.map.with_index {|y,j| [i, j, y.hosts_per_subnet] }
+      end
+        
+      # find the smallest decimal value to match the 
+      # required number of hosts on a network    
+      
+      hosts_per_subnet.reverse.detect {|x| x.last >  hosts + 1}    
     
+    elsif prefix
+
+      prefixes = @prefixes.flat_map.with_index do |octet,i|
+        octet.map.with_index {|x,j| [i, j, x]}
+      end
+      
+      prefixes.detect {|x| x.last == prefix}
+    
+    end    
 
     # determine what class of network we are using
-
-    class_type = hosts <= 254 ? 'c' : 'b'
+    class_type = (hosts and hosts <= 254 or prefix >= 24) ? 'c' : 'b'
 
     # Identify the network bits and the host bits
 
@@ -80,6 +99,7 @@ class SubnetCalc
     # identify the initial network bits for a class *a,b or c*
 
     class_n = (classes.to_a.index(class_type) + 1)
+
     network_bits = class_n.times.map {|x| Array.new(8, 1)}
     host_bits = (classes.to_a.length - class_n).times.map {|x| Array.new(8, 0)}
     address_bits = network_bits + host_bits
@@ -90,14 +110,7 @@ class SubnetCalc
       octet.mask = address_bits[i].join.to_i(2)
     end
 
-    # ------------------------------------
 
-
-
-    # find the smallest decimal value to match the 
-    # required number of hosts on a network    
-    
-    octet_n, col = hosts_per_subnet.reverse.detect {|x| x.last >  hosts + 1}    
 
     bit = octets[octet_n].bits[col]
 
@@ -105,7 +118,8 @@ class SubnetCalc
     
     no_of_subnets = (2 ** 8.0) / bit.hosts_per_subnet
 
-    segments = (no_of_subnets >= 1 ? no_of_subnets : 256 / (256 * no_of_subnets)).to_i
+    segments = (no_of_subnets >= 1 ? no_of_subnets : 
+                256 / (256 * no_of_subnets)).to_i
     n =  col
 
     # add the new mask to the octet
@@ -148,7 +162,10 @@ class SubnetCalc
 
     tfo = TableFormatter.new
 
-    tfo.source = @h[:subnets].map.with_index{|x,i| ([i] + x.to_h.values).map(&:to_s) }
+    tfo.source = @h[:subnets].map.with_index do |x,i|
+      ([i+1] + x.to_h.values).map(&:to_s)
+    end
+    
     tfo.labels = %w(index Network 1st last broadcast)
     full_subnets_table = tfo.display(markdown: true).to_s
     
