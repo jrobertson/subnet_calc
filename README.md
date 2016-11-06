@@ -22,7 +22,7 @@ Summary
 
 * Network class: C
 * magic number: 64
-* hosts per subnet (magic number - 2 ): 62
+* hosts per subnet: 62
 * subnet mask: 255.255.255.192
 * subnet bitmask: 11111111.11111111.11111111.11000000
 * prefix bit-length: 26
