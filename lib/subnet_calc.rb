@@ -22,7 +22,7 @@ class SubnetCalc
 
   using Ordinals
 
-  attr_reader :to_h
+  attr_reader :to_h, :octets
 
   def initialize(inputs={})
 
@@ -64,11 +64,13 @@ class SubnetCalc
 
     end
     
+    @octets = octets
+    
 
     # ------------------------------------
 
 
-    octet_n, col = if hosts then
+    octet_n, col, class_type = if hosts then
       
       hosts_per_subnet = octets.flat_map.with_index do |octet,i| 
         octet.bits.map.with_index {|y,j| [i, j, y.hosts_per_subnet] }
@@ -77,7 +79,18 @@ class SubnetCalc
       # find the smallest decimal value to match the 
       # required number of hosts on a network    
       
-      hosts_per_subnet.reverse.detect {|x| x.last >  hosts + 1}    
+      *r, _ = hosts_per_subnet.reverse.detect {|x| x.last >  hosts + 1}    
+      
+      network = case hosts
+      when 1..254
+        'c'
+      when 255..65534
+        'b'
+      else
+        'a'
+      end
+      
+      (r + [network])
     
     elsif prefix
 
@@ -85,12 +98,20 @@ class SubnetCalc
         octet.map.with_index {|x,j| [i, j, x]}
       end
       
-      prefixes.detect {|x| x.last == prefix}
-    
+      *r, _ = prefixes.detect {|x| x.last == prefix}
+      
+      network = case prefix
+      when 24..32
+        'c'
+      when 16..23
+        'b'
+      else
+        'a'
+      end
+      
+      (r + [network])
     end    
 
-    # determine what class of network we are using
-    class_type = ((hosts and hosts <= 254) or (prefix and prefix >= 24)) ? 'c' : 'b'
 
     # Identify the network bits and the host bits
 
@@ -111,7 +132,6 @@ class SubnetCalc
     end
 
 
-
     bit = octets[octet_n].bits[col]
 
     magic_number, hosts_per_subnet, prefix = bit.decimal, 
@@ -119,8 +139,7 @@ class SubnetCalc
     
     no_of_subnets = (2 ** 8.0) / bit.hosts_per_subnet
 
-    segments = (no_of_subnets >= 1 ? no_of_subnets : 
-                256 / (256 * no_of_subnets)).to_i
+    segments = (no_of_subnets >= 1 ? no_of_subnets : (1 / no_of_subnets)).to_i
     n =  col
 
     # add the new mask to the octet
@@ -133,6 +152,8 @@ class SubnetCalc
       class_subnets(segments, hosts_per_subnet)
     when 'b'
       class_b_subnets(256 / segments, bit.decimal)
+    when 'a'
+      class_a_subnets(256  ** 2 / segments, bit.decimal)      
     end
 
     ip = (default_inputs[:ip] + ' ') .split('.')[0..octet_n-1]
@@ -145,7 +166,8 @@ class SubnetCalc
       magic_number: magic_number,
       hosts: hosts_per_subnet - 2,
       subnet_mask: subnet_mask,
-      subnet_bitmask: subnet_mask.split('.').map {|x| x.to_i.to_s(2)},
+      subnet_bitmask: subnet_mask.split('.').map \
+                                  {|x| ('0' * 7 + x.to_i.to_s(2))[-8..-1]},
       prefix: prefix,
       subnets: subnets,
       range: "%s-%s" % [first_ip, last_ip],
@@ -159,7 +181,6 @@ class SubnetCalc
 
 
   def to_s()
-
 
     tfo = TableFormatter.new
 
@@ -244,9 +265,7 @@ EOF
       broadcast = i + block_size - 1
       first = i + 1
       last = broadcast - 1
-      
-
-      
+        
       h = if block_given? then
         yield(i,first,last,broadcast)
       else
@@ -274,7 +293,21 @@ EOF
     end    
     
   end  
-  
+
+  def class_a_subnets(n, block_size)
+    
+    class_subnets(n, block_size) do |network, first, last, broadcast|
+      
+      {
+        network: [network, 0, 0].join('.'), 
+        first: [network, 1, 1].join('.'), 
+        last: [broadcast, 255, 254].join('.'), 
+        broadcast: [broadcast, 255, 255].join('.')
+      }
+                
+    end    
+    
+  end    
   
   def indent(s, i=2)
     s.lines.map{|x| ' ' * i + x}.join
