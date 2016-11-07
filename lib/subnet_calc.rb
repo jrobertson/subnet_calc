@@ -161,8 +161,7 @@ class SubnetCalc
     
     first_ip = (ip + [subnets.first.first]).join('.')
     last_ip = (ip + [subnets.first.last]).join('.')
-
-
+    
     
     result = {
       class_type: class_type.upcase,
@@ -191,7 +190,7 @@ class SubnetCalc
       ([i+1] + x.to_h.values).map(&:to_s)
     end
     
-    tfo.labels = %w(index Network 1st last broadcast)
+    tfo.labels = %w(index: Network: 1st: last: broadcast:)
     full_subnets_table = tfo.display(markdown: true).to_s
     
     subnets_table = if full_subnets_table.lines.length > 14 then
@@ -206,7 +205,7 @@ class SubnetCalc
 
     prefixes = @prefixes[@octet_n].map {|x| '/' + x.to_s}
     tfo2.source = [@h[:subnet_bitmask][@octet_n].chars, prefixes]
-    tfo2.labels = 8.times.map {|n| (2 ** n).to_s }.reverse
+    tfo2.labels = 8.times.map {|n| (2 ** n).to_s + ':' }.reverse
     octet_table = tfo2.display(markdown: true).to_s
 
 <<EOF
