@@ -27,7 +27,7 @@ class SubnetCalc
   def initialize(inputs={})
 
     @inputs = inputs
-    default_inputs = {hosts: nil, ip: '192.168.0.0', prefix: nil}.merge(inputs)
+    default_inputs = {hosts: nil, ip: nil, prefix: nil}.merge(inputs)
     
     # Using the input(s) supplied:
 
@@ -157,7 +157,9 @@ class SubnetCalc
       class_a_subnets(256  ** 2 / segments, bit.decimal)      
     end
 
-    ip = (default_inputs[:ip] + ' ') .split('.')[0..octet_n-1]
+    default_inputs[:ip] ||= ['10.0.0.0', '172.16.0.0','192.166.0.0'][class_n-1]
+    
+    ip = (default_inputs[:ip] + ' ') .split('.')[0..class_n-1]
     
     first_ip = (ip + [subnets.first.first]).join('.')
     last_ip = (ip + [subnets.first.last]).join('.')
@@ -216,7 +218,7 @@ Subnet calculator
 
 Inputs: 
 
-#{Kvx.new(@inputs).to_s.lines.map {|x| ' ' * 2 + x}.join}
+#{indent Kvx.new(@inputs).to_s}
 
 Summary
 -------
