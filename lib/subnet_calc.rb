@@ -70,7 +70,7 @@ class SubnetCalc
     # ------------------------------------
 
 
-    octet_n, col, class_type = if hosts then
+    octet_n, bit_n, class_type = if hosts then
       
       hosts_per_subnet = octets.flat_map.with_index do |octet,i| 
         octet.bits.map.with_index {|y,j| [i, j, y.hosts_per_subnet] }
@@ -132,16 +132,15 @@ class SubnetCalc
     end
 
 
-    bit = octets[octet_n].bits[col]
+    bit = octets[octet_n].bits[bit_n]
 
     magic_number, hosts_per_subnet, prefix = bit.decimal, 
         bit.hosts_per_subnet, bit.prefix
     
-    n =  col
 
     # add the new mask to the octet
 
-    octets[octet_n].mask = octets[octet_n].bits.map(&:decimal)[0..n].inject(:+)
+    octets[octet_n].mask = octets[octet_n].bits.map(&:decimal)[0..bit_n].inject(:+)
     subnet_mask = octets.map(&:mask).join('.')
     
     subnet_bits = (subnet_mask.split('.')[class_n]).to_i.to_s(2).count("1")
@@ -170,8 +169,7 @@ class SubnetCalc
       magic_number: magic_number,
       hosts: hosts_per_subnet - 2,
       subnet_mask: subnet_mask,
-      subnet_bitmask: subnet_mask.split('.').map \
-                                  {|x| ('0' * 7 + x.to_i.to_s(2))[-8..-1]},
+      subnet_bitmask: subnet_mask.split('.').map {|x| "%08d" % x.to_i.to_s(2)},
       prefix: prefix,
       subnets: subnets,
       range: "%s-%s" % [first_ip, last_ip],
@@ -288,9 +286,9 @@ EOF
     class_subnets(n, block_size) do |network, first, last, broadcast|
       
       {
-        network: [network, 0].join('.'), 
-        first: [network, 1].join('.'), 
-        last: [broadcast, 254].join('.'), 
+          network: [network,     0].join('.'), 
+            first: [network,     1].join('.'), 
+             last: [broadcast, 254].join('.'), 
         broadcast: [broadcast, 255].join('.')
       }
                 
@@ -303,15 +301,15 @@ EOF
     class_subnets(n, block_size) do |network, first, last, broadcast|
       
       {
-        network: [network, 0, 0].join('.'), 
-        first: [network, 1, 1].join('.'), 
-        last: [broadcast, 255, 254].join('.'), 
+          network: [network,     0,   0].join('.'), 
+            first: [network,     1,   1].join('.'), 
+             last: [broadcast, 255, 254].join('.'), 
         broadcast: [broadcast, 255, 255].join('.')
       }
                 
     end    
     
-  end    
+  end     
   
   def indent(s, i=2)
     s.lines.map{|x| ' ' * i + x}.join
