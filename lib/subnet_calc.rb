@@ -10,7 +10,7 @@ require 'table-formatter'
 
 module Ordinals
 
-  refine Fixnum do
+  refine Integer do
     def ordinal
       self.to_s + ( (10...20).include?(self) ? 'th' : 
                     %w{ th st nd rd th th th th th th }[self % 10] )
